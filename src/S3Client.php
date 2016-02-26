@@ -9,7 +9,12 @@ namespace Drupal\amazons3;
 
 use Aws\Common\Credentials\Credentials;
 use Aws\S3\S3Client as AwsS3Client;
+use Capgemini\Cache\DrupalDoctrineCache;
+use Doctrine\Common\Cache\CacheProvider;
+use Doctrine\Common\Cache\ArrayCache;
+use Doctrine\Common\Cache\ChainCache;
 use Drupal\amazons3\Exception\S3ConnectValidationException;
+use Drupal\amazons3\StreamWrapperConfiguration;
 use Guzzle\Common\Collection;
 use Guzzle\Service\Command\Factory\AliasFactory;
 
@@ -22,6 +27,16 @@ use Guzzle\Service\Command\Factory\AliasFactory;
  */
 class S3Client {
   use DrupalAdapter\Bootstrap;
+
+  /**
+   * @var CacheProvider An optional cache for stat calls.
+   */
+  protected static $cache;
+
+  /**
+   * @var bool|int The lifetime of stat cache calls, or false for no expiry.
+   */
+  protected static $cacheLifetime;
 
   /**
    * This set of commandAliases is a protected static with no getter on the
@@ -71,6 +86,16 @@ class S3Client {
    * @return \Aws\S3\S3Client
    */
   public static function factory($config = array(), $bucket = NULL) {
+    // Attach doctrine cache for validation here, because this method is always
+    // called to get the $client param of other methods in this class.
+    $stream_wrapper_config = StreamWrapperConfiguration::fromDrupalVariables();
+    if ($stream_wrapper_config->isCaching() && !static::$cache) {
+      static::attachCache(
+        new ChainCache([new ArrayCache(), new DrupalDoctrineCache()]),
+        $stream_wrapper_config->getCacheLifetime()
+      );
+    }
+
     if (!isset($config['credentials'])) {
       $config['credentials'] = new Credentials(static::variable_get('amazons3_key'), static::variable_get('amazons3_secret'));
     }
@@ -108,6 +133,18 @@ class S3Client {
   }
 
   /**
+   * Attach a cache to this client.
+   *
+   * @param CacheProvider $cache
+   * @param bool|int $lifetime
+   *   (optional) Lifetime of cache items, defaults to no expiry.
+   */
+  public static function attachCache(CacheProvider $cache, $lifetime = false) {
+    static::$cache = $cache;
+    static::$cacheLifetime = $lifetime;
+  }
+
+  /**
    * Validate that a bucket exists.
    *
    * Since bucket names are global across all of S3, we can't determine if a
@@ -118,19 +155,16 @@ class S3Client {
    *   The name of the bucket to test.
    * @param \Aws\S3\S3Client $client
    *   The S3Client to use.
-   * @param \Drupal\amazons3\Cache $cache
-   *   Cache configured to cache in the cache_amazons3_metadata bin.
    *
    * @throws S3ConnectValidationException
    *   Thrown when credentials are invalid or the bucket does not exist.
    */
-  public static function validateBucketExists($bucket, AwsS3Client $client, \Drupal\amazons3\Cache $cache) {
+  public static function validateBucketExists($bucket, AwsS3Client $client) {
     $key = 'bucket:' . $bucket;
     // Do not bother to fetch, because we only cache a successful response.
-    if (!$cache->contains($key)) {
+    if (!static::$cache->contains($key)) {
       if ($client->doesBucketExist($bucket, FALSE)) {
-        $config = \Drupal\amazons3\StreamWrapperConfiguration::fromDrupalVariables();
-        $cache->save($key, TRUE, $config->getCacheLifetime());
+        static::$cache->save($key, TRUE, static::$cacheLifetime);
       }
       else {
         throw new S3ConnectValidationException('The S3 access credentials are invalid or the bucket does not exist.');
