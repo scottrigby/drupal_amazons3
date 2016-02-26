@@ -485,7 +485,7 @@ function amazons3_file_entity_upload_destination_uri_alter(&$result, array $para
       $url = S3Url::factory($result);
       $bucket = $url->getBucket();
       $s3 = S3Client::factory(array(), $bucket);
-      S3Client::validateBucketExists($bucket, $s3, new \Drupal\amazons3\Cache());
+      S3Client::validateBucketExists($bucket, $s3);
     }
     catch (\InvalidArgumentException $e) {
       // We couldn't parse the URL, so check to see if it is bare.
@@ -524,7 +524,7 @@ function amazons3_file_stream_wrapper_uri_normalize_alter(&$uri, $scheme, $targe
       // assume that image.jpg is supposed to be created in the default bucket.
       $bucket = $url->getBucket();
       $s3 = S3Client::factory(array(), $bucket);
-      S3Client::validateBucketExists($bucket, $s3, new \Drupal\amazons3\Cache());
+      S3Client::validateBucketExists($bucket, $s3);
     }
     catch (\InvalidArgumentException $e) {
       // Catch if S3Url::factory() can not parse $uri. That happens if we are
@@ -657,7 +657,7 @@ function amazons3_form_bucket_validate(array &$element, array &$form_state, arra
 
   try {
     $s3 = S3Client::factory($config, $bucket);
-    S3Client::validateBucketExists($bucket, $s3, new \Drupal\amazons3\Cache());
+    S3Client::validateBucketExists($bucket, $s3);
   }
   catch (S3ConnectValidationException $e) {
     form_error($element, t('The S3 access credentials are invalid or the bucket does not exist.'));

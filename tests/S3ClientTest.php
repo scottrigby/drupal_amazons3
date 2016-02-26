@@ -41,7 +41,7 @@ class S3ClientTest extends GuzzleTestCase {
    */
   public function testValidateBucketExistsFail() {
     $client = DrupalS3Client::factory();
-    DrupalS3Client::validateBucketExists('bucket', $client, new \Drupal\amazons3\Cache());
+    DrupalS3Client::validateBucketExists('bucket', $client);
   }
 
   /**
@@ -54,7 +54,7 @@ class S3ClientTest extends GuzzleTestCase {
 
     $exception = NULL;
     try {
-      DrupalS3Client::validateBucketExists('bucket', $client, new \Drupal\amazons3\Cache());
+      DrupalS3Client::validateBucketExists('bucket', $client);
     }
     catch (\Exception $exception) {
     }
