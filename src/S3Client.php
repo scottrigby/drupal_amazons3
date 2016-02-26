@@ -118,13 +118,23 @@ class S3Client {
    *   The name of the bucket to test.
    * @param \Aws\S3\S3Client $client
    *   The S3Client to use.
+   * @param \Drupal\amazons3\Cache $cache
+   *   Cache configured to cache in the cache_amazons3_metadata bin.
    *
    * @throws S3ConnectValidationException
    *   Thrown when credentials are invalid or the bucket does not exist.
    */
-  public static function validateBucketExists($bucket, AwsS3Client $client) {
-    if (!$client->doesBucketExist($bucket, FALSE)) {
-      throw new S3ConnectValidationException('The S3 access credentials are invalid or the bucket does not exist.');
+  public static function validateBucketExists($bucket, AwsS3Client $client, \Drupal\amazons3\Cache $cache) {
+    $key = 'bucket:' . $bucket;
+    // Do not bother to fetch, because we only cache a successful response.
+    if (!$cache->contains($key)) {
+      if ($client->doesBucketExist($bucket, FALSE)) {
+        $config = \Drupal\amazons3\StreamWrapperConfiguration::fromDrupalVariables();
+        $cache->save($key, TRUE, $config->getCacheLifetime());
+      }
+      else {
+        throw new S3ConnectValidationException('The S3 access credentials are invalid or the bucket does not exist.');
+      }
     }
   }
 

@@ -657,7 +657,7 @@ function amazons3_form_bucket_validate(array &$element, array &$form_state, arra
 
   try {
     $s3 = S3Client::factory($config, $bucket);
-    S3Client::validateBucketExists($bucket, $s3);
+    S3Client::validateBucketExists($bucket, $s3, new \Drupal\amazons3\Cache());
   }
   catch (S3ConnectValidationException $e) {
     form_error($element, t('The S3 access credentials are invalid or the bucket does not exist.'));
